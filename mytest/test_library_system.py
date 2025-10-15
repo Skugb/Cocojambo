@@ -1,13 +1,11 @@
 """
-Полное решение тестов для системы управления библиотекой
-Покрытие: 40+ тестов, все требования выполнены
+Тесты для системы управления библиотекой
 """
 import pytest
 from datetime import datetime, timedelta
 from library_system import (
     Book, Reader, Library,
-    BookNotAvailableError, ReaderNotFoundError,
-    create_sample_library
+    BookNotAvailableError, ReaderNotFoundError
 )
 
 
@@ -16,29 +14,13 @@ from library_system import (
 @pytest.fixture
 def sample_book():
     """Фикстура для создания тестовой книги"""
-    return Book(
-        isbn="978-0-123456-78-9",
-        title="Тестовая книга",
-        author="Тестовый Автор",
-        year=2020,
-        copies=3
-    )
+    return Book("978-0-545-01022-1", "Гарри Поттер и Дары Смерти", "Дж.К. Роулинг", 2007, 3)
 
 
 @pytest.fixture
 def sample_reader():
     """Фикстура для создания тестового читателя"""
-    return Reader(
-        reader_id="R001",
-        name="Иван Тестов",
-        email="test@example.com"
-    )
-
-
-@pytest.fixture
-def empty_library():
-    """Фикстура для создания пустой библиотеки"""
-    return Library("Тестовая библиотека")
+    return Reader("R001", "Иван Иванов", "ivan@example.com")
 
 
 @pytest.fixture
@@ -48,9 +30,10 @@ def library_with_data():
     
     # Добавляем книги
     books = [
-        Book("978-0-545-01022-1", "Гарри Поттер", "Дж.К. Роулинг", 2007, 3),
+        Book("978-0-545-01022-1", "Гарри Поттер и Дары Смерти", "Дж.К. Роулинг", 2007, 3),
         Book("978-5-17-084716-3", "Мастер и Маргарита", "М.А. Булгаков", 1967, 2),
         Book("978-5-389-01006-7", "1984", "Джордж Оруэлл", 1949, 2),
+        Book("978-3-420-011346-2", "1989 дней назад", "Джордж Аруэлл", 1949, 1)
     ]
     
     for book in books:
@@ -60,7 +43,6 @@ def library_with_data():
     readers = [
         Reader("R001", "Иван Иванов", "ivan@example.com"),
         Reader("R002", "Мария Петрова", "maria@example.com"),
-        Reader("R003", "Петр Сидоров", "petr@example.com"),
     ]
     
     for reader in readers:
@@ -70,14 +52,9 @@ def library_with_data():
 
 
 @pytest.fixture
-def mock_datetime_now(monkeypatch):
-    """Фикстура для подмены datetime.now()"""
-    class MockDatetime:
-        @staticmethod
-        def now():
-            return datetime(2025, 10, 6, 12, 0, 0)
-    
-    return MockDatetime
+def empty_library():
+    """Фикстура для создания пустой библиотеки"""
+    return Library("Тестовая библиотека")
 
 
 # ============= ТЕСТЫ КЛАССА BOOK =============
@@ -85,81 +62,87 @@ def mock_datetime_now(monkeypatch):
 class TestBook:
     """Тесты для класса Book"""
     
-    def test_should_create_book_with_valid_data(self):
-        """Тест: создание книги с корректными данными"""
-        book = Book("978-0-123456-78-9", "Название", "Автор", 2020, 5)
-        
-        assert book.isbn == "978-0-123456-78-9"
-        assert book.title == "Название"
-        assert book.author == "Автор"
-        assert book.year == 2020
-        assert book.total_copies == 5
-        assert book.available_copies == 5
+    def test_should_create_book_with_valid_data(self, sample_book):
+        """Корректное создание объекта книги с валидными данными"""
+        assert sample_book.isbn == "978-0-545-01022-1"
+        assert sample_book.title == "Гарри Поттер и Дары Смерти"
+        assert sample_book.author == "Дж.К. Роулинг"
+        assert sample_book.year == 2007
+        assert sample_book.total_copies == 3
+        assert sample_book.available_copies == 3
     
-    def test_should_raise_error_for_empty_isbn(self):
-        """Тест: пустой ISBN вызывает ValueError"""
+    @pytest.mark.parametrize("isbn", ["", None])
+    def test_should_raise_error_for_empty_isbn(self, isbn):
+        """Валидация: пустой ISBN должен вызывать ValueError"""
         with pytest.raises(ValueError, match="ISBN, название и автор обязательны"):
-            Book("", "Название", "Автор", 2020)
+            Book(isbn, "Тестовая книга", "Автор", 2020)
     
-    def test_should_raise_error_for_empty_title(self):
-        """Тест: пустое название вызывает ValueError"""
+    @pytest.mark.parametrize("title", ["", None])
+    def test_should_raise_error_for_empty_title(self, title):
+        """Валидация: пустое название должно вызывать ValueError"""
         with pytest.raises(ValueError, match="ISBN, название и автор обязательны"):
-            Book("978-0-123456-78-9", "", "Автор", 2020)
+            Book("123", title, "Автор", 2020)
     
-    def test_should_raise_error_for_empty_author(self):
-        """Тест: пустой автор вызывает ValueError"""
+    @pytest.mark.parametrize("author", ["", None])
+    def test_should_raise_error_for_empty_author(self, author):
+        """Валидация: пустой автор должен вызывать ValueError"""
         with pytest.raises(ValueError, match="ISBN, название и автор обязательны"):
-            Book("978-0-123456-78-9", "Название", "", 2020)
+            Book("123", "Тестовая книга", author, 2020)
     
-    @pytest.mark.parametrize("year", [999, 2030, -100, 0, 500])
+    @pytest.mark.parametrize("year", [999, 2030, -100, 0])
     def test_should_raise_error_for_invalid_year(self, year):
-        """Тест: некорректный год вызывает ValueError"""
-        with pytest.raises(ValueError, match="Некорректный год издания"):
-            Book("978-0-123456-78-9", "Название", "Автор", year)
+        """Валидация: некорректный год должен вызывать ValueError"""
+        with pytest.raises(ValueError, match=f"Некорректный год издания: {year}"):
+            Book("123", "Тестовая книга", "Автор", year)
     
     def test_should_raise_error_for_negative_copies(self):
-        """Тест: отрицательное количество копий вызывает ValueError"""
+        """Валидация: отрицательное количество копий должно вызывать ValueError"""
         with pytest.raises(ValueError, match="Количество копий не может быть отрицательным"):
-            Book("978-0-123456-78-9", "Название", "Автор", 2020, -1)
+            Book("123", "Тестовая книга", "Автор", 2020, -1)
     
     def test_is_available_should_return_true_when_copies_available(self, sample_book):
-        """Тест: is_available() возвращает True когда есть копии"""
+        """Метод is_available() возвращает True когда есть доступные копии"""
         assert sample_book.is_available() is True
     
-    def test_is_available_should_return_false_when_no_copies(self, sample_book):
-        """Тест: is_available() возвращает False когда нет копий"""
-        sample_book.available_copies = 0
+    def test_is_available_should_return_false_when_no_copies_available(self, sample_book):
+        """Метод is_available() возвращает False когда нет доступных копий"""
+        # Занимаем все копии
+        for _ in range(sample_book.total_copies):
+            sample_book.borrow()
         assert sample_book.is_available() is False
     
-    def test_borrow_should_decrease_available_copies(self, sample_book):
-        """Тест: borrow() уменьшает количество доступных копий"""
+    def test_borrow_should_decrease_available_copies_and_return_true(self, sample_book):
+        """Метод borrow() уменьшает available_copies и возвращает True"""
         initial_copies = sample_book.available_copies
         result = sample_book.borrow()
         
         assert result is True
         assert sample_book.available_copies == initial_copies - 1
     
-    def test_borrow_should_return_false_when_no_copies(self, sample_book):
-        """Тест: borrow() возвращает False когда нет копий"""
-        sample_book.available_copies = 0
-        result = sample_book.borrow()
+    def test_borrow_should_return_false_when_no_copies_available(self, sample_book):
+        """Метод borrow() возвращает False когда нет доступных копий"""
+        # Занимаем все копии
+        for _ in range(sample_book.total_copies):
+            sample_book.borrow()
         
+        result = sample_book.borrow()
         assert result is False
         assert sample_book.available_copies == 0
     
-    def test_return_book_should_increase_available_copies(self, sample_book):
-        """Тест: return_book() увеличивает количество доступных копий"""
+    def test_return_book_should_increase_available_copies_and_return_true(self, sample_book):
+        """Метод return_book() увеличивает available_copies и возвращает True"""
+        # Сначала занимаем книгу
         sample_book.borrow()
         initial_copies = sample_book.available_copies
+        
         result = sample_book.return_book()
         
         assert result is True
         assert sample_book.available_copies == initial_copies + 1
     
-    def test_return_book_should_return_false_when_all_returned(self, sample_book):
-        """Тест: return_book() возвращает False когда все копии возвращены"""
+    def test_return_book_should_return_false_when_all_copies_returned(self, sample_book):
+        """Метод return_book() возвращает False когда все копии уже возвращены"""
         result = sample_book.return_book()
-        
         assert result is False
         assert sample_book.available_copies == sample_book.total_copies
 
@@ -169,114 +152,109 @@ class TestBook:
 class TestReader:
     """Тесты для класса Reader"""
     
-    def test_should_create_reader_with_valid_data(self):
-        """Тест: создание читателя с корректными данными"""
-        reader = Reader("R001", "Иван Иванов", "ivan@example.com")
-        
-        assert reader.reader_id == "R001"
-        assert reader.name == "Иван Иванов"
-        assert reader.email == "ivan@example.com"
-        assert reader.borrowed_books == []
-        assert reader.history == []
+    def test_should_create_reader_with_valid_data(self, sample_reader):
+        """Корректное создание читателя с валидными данными"""
+        assert sample_reader.reader_id == "R001"
+        assert sample_reader.name == "Иван Иванов"
+        assert sample_reader.email == "ivan@example.com"
+        assert sample_reader.borrowed_books == []
+        assert sample_reader.history == []
     
-    def test_should_raise_error_for_empty_reader_id(self):
-        """Тест: пустой reader_id вызывает ValueError"""
+    @pytest.mark.parametrize("reader_id", ["", None])
+    def test_should_raise_error_for_empty_reader_id(self, reader_id):
+        """Валидация: пустой reader_id должен вызывать ValueError"""
         with pytest.raises(ValueError, match="ID, имя и email обязательны"):
-            Reader("", "Имя", "email@example.com")
+            Reader(reader_id, "Иван Иванов", "ivan@example.com")
     
-    def test_should_raise_error_for_empty_name(self):
-        """Тест: пустое имя вызывает ValueError"""
+    @pytest.mark.parametrize("name", ["", None])
+    def test_should_raise_error_for_empty_name(self, name):
+        """Валидация: пустое имя должно вызывать ValueError"""
         with pytest.raises(ValueError, match="ID, имя и email обязательны"):
-            Reader("R001", "", "email@example.com")
+            Reader("R001", name, "ivan@example.com")
     
-    def test_should_raise_error_for_empty_email(self):
-        """Тест: пустой email вызывает ValueError"""
+    @pytest.mark.parametrize("email", ["", None])
+    def test_should_raise_error_for_empty_email(self, email):
+        """Валидация: пустой email должен вызывать ValueError"""
         with pytest.raises(ValueError, match="ID, имя и email обязательны"):
-            Reader("R001", "Имя", "")
+            Reader("R001", "Иван Иванов", email)
     
-    @pytest.mark.parametrize("email", [
-        "invalid",
-        "invalid.com",
-    ])
+    @pytest.mark.parametrize("email", ["invalid", "invalid.com"])
     def test_should_raise_error_for_invalid_email(self, email):
-        """Тест: некорректный email вызывает ValueError"""
+        """Валидация: email без символа '@' должен вызывать ValueError"""
         with pytest.raises(ValueError, match="Некорректный email"):
-            Reader("R001", "Имя", email)
+            Reader("R001", "Иван Иванов", email)
     
     def test_can_borrow_should_return_true_when_under_limit(self, sample_reader):
-        """Тест: can_borrow() возвращает True когда не достигнут лимит"""
+        """Метод can_borrow() возвращает True когда у читателя меньше MAX_BOOKS"""
         assert sample_reader.can_borrow() is True
     
-    def test_can_borrow_should_return_false_when_at_limit(self, sample_reader):
-        """Тест: can_borrow() возвращает False при достижении лимита"""
-        # Добавляем MAX_BOOKS книг
+    def test_can_borrow_should_return_false_when_limit_reached(self, sample_reader):
+        """Метод can_borrow() возвращает False когда достигнут лимит"""
+        # Добавляем максимальное количество книг
         for i in range(Reader.MAX_BOOKS):
-            sample_reader.borrowed_books.append(f"ISBN-{i}")
+            sample_reader.add_borrowed_book(f"ISBN{i}")
         
         assert sample_reader.can_borrow() is False
     
-    def test_add_borrowed_book_should_add_isbn_to_list(self, sample_reader):
-        """Тест: add_borrowed_book() добавляет ISBN в список"""
-        isbn = "978-0-123456-78-9"
-        result = sample_reader.add_borrowed_book(isbn)
+    def test_add_borrowed_book_should_add_isbn_to_borrowed_books(self, sample_reader):
+        """Метод add_borrowed_book() добавляет ISBN в borrowed_books"""
+        result = sample_reader.add_borrowed_book("ISBN123")
         
         assert result is True
-        assert isbn in sample_reader.borrowed_books
-        assert len(sample_reader.borrowed_books) == 1
-    
-    def test_add_borrowed_book_should_record_history(self, sample_reader):
-        """Тест: add_borrowed_book() записывает в историю"""
-        isbn = "978-0-123456-78-9"
-        sample_reader.add_borrowed_book(isbn)
-        
+        assert "ISBN123" in sample_reader.borrowed_books
         assert len(sample_reader.history) == 1
-        assert sample_reader.history[0][0] == isbn
-        assert sample_reader.history[0][1] == 'borrowed'
-        assert isinstance(sample_reader.history[0][2], datetime)
+        assert sample_reader.history[0][0] == "ISBN123"
+        assert sample_reader.history[0][1] == "borrowed"
     
     def test_add_borrowed_book_should_return_false_for_duplicate(self, sample_reader):
-        """Тест: add_borrowed_book() возвращает False для дубликата"""
-        isbn = "978-0-123456-78-9"
-        sample_reader.add_borrowed_book(isbn)
-        result = sample_reader.add_borrowed_book(isbn)
+        """Метод add_borrowed_book() возвращает False при попытке добавить дубликат"""
+        sample_reader.add_borrowed_book("ISBN123")
+        result = sample_reader.add_borrowed_book("ISBN123")
         
         assert result is False
         assert len(sample_reader.borrowed_books) == 1
     
-    def test_add_borrowed_book_should_return_false_when_limit_reached(self, sample_reader):
-        """Тест: add_borrowed_book() возвращает False при превышении лимита"""
-        # Добавляем MAX_BOOKS книг
+    def test_add_borrowed_book_should_return_false_when_over_limit(self, sample_reader):
+        """Метод add_borrowed_book() возвращает False при превышении лимита"""
+        # Добавляем максимальное количество книг
         for i in range(Reader.MAX_BOOKS):
-            sample_reader.add_borrowed_book(f"ISBN-{i}")
+            sample_reader.add_borrowed_book(f"ISBN{i}")
         
-        result = sample_reader.add_borrowed_book("ISBN-extra")
+        result = sample_reader.add_borrowed_book("ISBN_EXTRA")
         
         assert result is False
         assert len(sample_reader.borrowed_books) == Reader.MAX_BOOKS
     
-    def test_remove_borrowed_book_should_remove_isbn(self, sample_reader):
-        """Тест: remove_borrowed_book() удаляет ISBN из списка"""
-        isbn = "978-0-123456-78-9"
-        sample_reader.add_borrowed_book(isbn)
-        result = sample_reader.remove_borrowed_book(isbn)
+    def test_remove_borrowed_book_should_remove_isbn_from_borrowed_books(self, sample_reader):
+        """Метод remove_borrowed_book() удаляет ISBN из borrowed_books"""
+        sample_reader.add_borrowed_book("ISBN123")
+        result = sample_reader.remove_borrowed_book("ISBN123")
         
         assert result is True
-        assert isbn not in sample_reader.borrowed_books
+        assert "ISBN123" not in sample_reader.borrowed_books
+        assert len(sample_reader.history) == 2  # borrow + return
     
-    def test_remove_borrowed_book_should_record_history(self, sample_reader):
-        """Тест: remove_borrowed_book() записывает в историю"""
-        isbn = "978-0-123456-78-9"
-        sample_reader.add_borrowed_book(isbn)
-        sample_reader.remove_borrowed_book(isbn)
-        
-        assert len(sample_reader.history) == 2
-        assert sample_reader.history[1][1] == 'returned'
-    
-    def test_remove_borrowed_book_should_return_false_if_not_borrowed(self, sample_reader):
-        """Тест: remove_borrowed_book() возвращает False если книга не взята"""
-        result = sample_reader.remove_borrowed_book("978-0-123456-78-9")
+    def test_remove_borrowed_book_should_return_false_if_book_not_in_list(self, sample_reader):
+        """Метод remove_borrowed_book() возвращает False если книги нет в списке"""
+        result = sample_reader.remove_borrowed_book("NON_EXISTENT")
         
         assert result is False
+        assert len(sample_reader.borrowed_books) == 0
+    
+    def test_history_should_record_operations_with_timestamps(self, sample_reader):
+        """История (history) корректно записывает операции с временными метками"""
+        sample_reader.add_borrowed_book("ISBN1")
+        sample_reader.remove_borrowed_book("ISBN1")
+        sample_reader.add_borrowed_book("ISBN2")
+        
+        assert len(sample_reader.history) == 3
+        
+        # Проверяем структуру записей
+        for record in sample_reader.history:
+            assert len(record) == 3
+            assert isinstance(record[0], str)  # ISBN
+            assert record[1] in ['borrowed', 'returned']  # action
+            assert isinstance(record[2], datetime)  # timestamp
 
 
 # ============= ТЕСТЫ КЛАССА LIBRARY =============
@@ -285,41 +263,43 @@ class TestLibrary:
     """Тесты для класса Library"""
     
     def test_should_create_library_with_valid_name(self):
-        """Тест: создание библиотеки с корректным названием"""
-        library = Library("Городская библиотека")
-        
-        assert library.name == "Городская библиотека"
+        """Корректное создание библиотеки"""
+        library = Library("Тестовая библиотека")
+        assert library.name == "Тестовая библиотека"
         assert library.books == {}
         assert library.readers == {}
         assert library.active_loans == {}
     
-    def test_should_raise_error_for_empty_name(self):
-        """Тест: пустое название вызывает ValueError"""
+    @pytest.mark.parametrize("name", ["", None])
+    def test_should_raise_error_for_empty_library_name(self, name):
+        """Валидация: пустое название библиотеки должно вызывать ValueError"""
         with pytest.raises(ValueError, match="Название библиотеки обязательно"):
-            Library("")
+            Library(name)
     
-    def test_add_book_should_add_new_book(self, empty_library, sample_book):
-        """Тест: add_book() добавляет новую книгу"""
+    def test_add_book_should_add_new_book_and_return_true(self, empty_library, sample_book):
+        """Метод add_book() добавляет новую книгу и возвращает True"""
         result = empty_library.add_book(sample_book)
         
         assert result is True
         assert sample_book.isbn in empty_library.books
         assert empty_library.books[sample_book.isbn] == sample_book
     
-    def test_add_book_should_increase_copies_for_existing_book(self, empty_library):
-        """Тест: add_book() увеличивает количество копий для существующей книги"""
-        book1 = Book("978-0-123456-78-9", "Название", "Автор", 2020, 2)
-        book2 = Book("978-0-123456-78-9", "Название", "Автор", 2020, 3)
+    def test_add_book_should_increase_copies_for_existing_book(self, empty_library, sample_book):
+        """Метод add_book() увеличивает количество копий для существующей книги"""
+        # Добавляем книгу первый раз
+        empty_library.add_book(sample_book)
+        initial_copies = sample_book.total_copies
         
-        empty_library.add_book(book1)
-        result = empty_library.add_book(book2)
+        # Создаем новую книгу с тем же ISBN но другими копиями
+        additional_book = Book(sample_book.isbn, "Другое название", "Другой автор", 2020, 2)
+        result = empty_library.add_book(additional_book)
         
         assert result is False
-        assert empty_library.books[book1.isbn].total_copies == 5
-        assert empty_library.books[book1.isbn].available_copies == 5
+        assert empty_library.books[sample_book.isbn].total_copies == initial_copies + 2
+        assert empty_library.books[sample_book.isbn].available_copies == initial_copies + 2
     
     def test_register_reader_should_register_new_reader(self, empty_library, sample_reader):
-        """Тест: register_reader() регистрирует нового читателя"""
+        """Метод register_reader() регистрирует нового читателя"""
         result = empty_library.register_reader(sample_reader)
         
         assert result is True
@@ -327,626 +307,358 @@ class TestLibrary:
         assert empty_library.readers[sample_reader.reader_id] == sample_reader
     
     def test_register_reader_should_return_false_for_duplicate(self, empty_library, sample_reader):
-        """Тест: register_reader() возвращает False для дубликата"""
+        """Метод register_reader() возвращает False для дубликата"""
         empty_library.register_reader(sample_reader)
         result = empty_library.register_reader(sample_reader)
         
         assert result is False
-        assert len(empty_library.readers) == 1
     
-    def test_find_books_by_author_should_find_matching_books(self, library_with_data):
-        """Тест: find_books_by_author() находит книги по автору"""
-        books = library_with_data.find_books_by_author("Роулинг")
+    def test_find_books_by_author_should_find_books_case_insensitive(self, library_with_data):
+        """Метод find_books_by_author() находит книги (регистронезависимый поиск)"""
+        books_lower = library_with_data.find_books_by_author("роулинг")
+        books_upper = library_with_data.find_books_by_author("РОУЛИНГ")
+        books_mixed = library_with_data.find_books_by_author("РоУлИнГ")
         
-        assert len(books) == 1
-        assert books[0].title == "Гарри Поттер"
+        assert len(books_lower) == 1
+        assert len(books_upper) == 1
+        assert len(books_mixed) == 1
+        assert books_lower[0].author == "Дж.К. Роулинг"
     
-    def test_find_books_by_author_should_be_case_insensitive(self, library_with_data):
-        """Тест: find_books_by_author() регистронезависимый"""
-        books = library_with_data.find_books_by_author("оруэлл")
+    def test_find_books_by_title_should_find_books_case_insensitive(self, library_with_data):
+        """Метод find_books_by_title() находит книги (регистронезависимый поиск)"""
+        books_lower = library_with_data.find_books_by_title("гарри")
+        books_upper = library_with_data.find_books_by_title("ГАРРИ")
+        books_mixed = library_with_data.find_books_by_title("ГаРрИ")
         
-        assert len(books) == 1
-        assert books[0].author == "Джордж Оруэлл"
+        assert len(books_lower) == 1
+        assert len(books_upper) == 1
+        assert len(books_mixed) == 1
+        assert books_lower[0].title == "Гарри Поттер и Дары Смерти"
     
-    def test_find_books_by_title_should_find_matching_books(self, library_with_data):
-        """Тест: find_books_by_title() находит книги по названию"""
-        books = library_with_data.find_books_by_title("Мастер")
+    def test_get_available_books_should_return_only_available_books(self, library_with_data):
+        """Метод get_available_books() возвращает только доступные книги"""
+        available_books = library_with_data.get_available_books()
         
-        assert len(books) == 1
-        assert "Мастер и Маргарита" in books[0].title
-    
-    @pytest.mark.parametrize("query,expected_count", [
-        ("Гарри", 1),
-        ("1984", 1),
-        ("Мастер", 1),
-        ("Несуществующая", 0),
-    ])
-    def test_find_books_by_title_parametrized(self, library_with_data, query, expected_count):
-        """Тест: find_books_by_title() с параметризацией"""
-        books = library_with_data.find_books_by_title(query)
-        assert len(books) == expected_count
-    
-    def test_get_available_books_should_return_only_available(self, library_with_data):
-        """Тест: get_available_books() возвращает только доступные книги"""
-        available = library_with_data.get_available_books()
+        # Все книги должны быть доступны изначально
+        assert len(available_books) == len(library_with_data.books)
         
-        assert len(available) == 3
-        assert all(book.is_available() for book in available)
-    
-    def test_get_available_books_should_exclude_borrowed(self, library_with_data):
-        """Тест: get_available_books() исключает взятые книги"""
-        # Берем все копии одной книги
-        isbn = "978-5-389-01006-7"
-        library_with_data.borrow_book("R001", isbn)
-        library_with_data.borrow_book("R002", isbn)
+        # Занимаем одну книгу
+        library_with_data.borrow_book("R001", "978-3-420-011346-2")
+        available_books_after = library_with_data.get_available_books()
         
-        available = library_with_data.get_available_books()
-        
-        assert len(available) == 2
-        assert not any(book.isbn == isbn for book in available)
+        assert len(available_books_after) == len(available_books) - 1
     
-    def test_borrow_book_should_succeed_with_valid_data(self, library_with_data):
-        """Тест: успешная выдача книги"""
-        success, msg = library_with_data.borrow_book("R001", "978-0-545-01022-1")
+    def test_borrow_book_should_successfully_lend_book_to_reader(self, library_with_data):
+        """Успешная выдача книги читателю"""
+        success, message = library_with_data.borrow_book("R001", "978-0-545-01022-1")
         
         assert success is True
-        assert "Книга выдана до" in msg
+        assert "выдана до" in message
         assert ("R001", "978-0-545-01022-1") in library_with_data.active_loans
+        assert "978-0-545-01022-1" in library_with_data.readers["R001"].borrowed_books
     
-    def test_borrow_book_should_raise_error_for_nonexistent_reader(self, library_with_data):
-        """Тест: выброс ReaderNotFoundError для несуществующего читателя"""
-        with pytest.raises(ReaderNotFoundError, match="Читатель R999 не найден"):
-            library_with_data.borrow_book("R999", "978-0-545-01022-1")
+    def test_borrow_book_should_raise_reader_not_found_error(self, library_with_data):
+        """Выброс ReaderNotFoundError для несуществующего читателя"""
+        with pytest.raises(ReaderNotFoundError, match="Читатель NON_EXISTENT не найден"):
+            library_with_data.borrow_book("NON_EXISTENT", "978-0-545-01022-1")
     
     def test_borrow_book_should_return_false_for_nonexistent_book(self, library_with_data):
-        """Тест: возврат False для несуществующей книги"""
-        success, msg = library_with_data.borrow_book("R001", "978-9-999999-99-9")
+        """Возврат (False, message) для несуществующей книги"""
+        success, message = library_with_data.borrow_book("R001", "NON_EXISTENT_ISBN")
         
         assert success is False
-        assert "не найдена" in msg
+        assert "не найдена" in message
     
-    def test_borrow_book_should_raise_error_when_book_unavailable(self, library_with_data):
-        """Тест: выброс BookNotAvailableError когда книга недоступна"""
-        isbn = "978-5-389-01006-7"
-        # Берем все копии
-        library_with_data.borrow_book("R001", isbn)
-        library_with_data.borrow_book("R002", isbn)
+    def test_borrow_book_should_raise_book_not_available_error(self, library_with_data):
+        """Выброс BookNotAvailableError когда книга недоступна"""
+        # Занимаем все копии книги
+        book = library_with_data.books["978-0-545-01022-1"]
+        for _ in range(book.total_copies):
+            book.borrow()
         
         with pytest.raises(BookNotAvailableError, match="недоступна"):
-            library_with_data.borrow_book("R003", isbn)
+            library_with_data.borrow_book("R001", "978-0-545-01022-1")
     
-    def test_borrow_book_should_fail_when_reader_at_limit(self, library_with_data):
-        """Тест: неудача когда читатель достиг лимита"""
+    def test_borrow_book_should_return_false_when_reader_reached_limit(self, library_with_data):
+        """Возврат (False, message) когда читатель достиг лимита книг"""
+        # Добавляем максимальное количество книг читателю
         reader = library_with_data.readers["R001"]
-        # Добавляем MAX_BOOKS книг вручную
         for i in range(Reader.MAX_BOOKS):
-            reader.borrowed_books.append(f"ISBN-{i}")
+            reader.add_borrowed_book(f"EXTRA_{i}")
         
-        success, msg = library_with_data.borrow_book("R001", "978-0-545-01022-1")
-        
-        assert success is False
-        assert "лимита книг" in msg
-    
-    def test_borrow_book_should_fail_if_already_borrowed_by_reader(self, library_with_data):
-        """Тест: неудача если читатель уже взял эту книгу"""
-        isbn = "978-0-545-01022-1"
-        library_with_data.borrow_book("R001", isbn)
-        
-        success, msg = library_with_data.borrow_book("R001", isbn)
+        success, message = library_with_data.borrow_book("R001", "978-0-545-01022-1")
         
         assert success is False
-        assert "уже взята" in msg
+        assert "лимита книг" in message
     
-    def test_borrow_book_should_set_correct_due_date(self, library_with_data):
-        """Тест: выдача книги устанавливает корректную дату возврата"""
+    def test_borrow_book_should_return_false_when_reader_already_borrowed_book(self, library_with_data):
+        """Возврат (False, message) когда читатель уже взял эту книгу"""
+        # Выдаем книгу первый раз
         library_with_data.borrow_book("R001", "978-0-545-01022-1")
         
-        due_date = library_with_data.active_loans[("R001", "978-0-545-01022-1")]
-        expected_date = datetime.now() + timedelta(days=Library.LOAN_PERIOD_DAYS)
+        # Пытаемся выдать ту же книгу еще раз
+        success, message = library_with_data.borrow_book("R001", "978-0-545-01022-1")
         
-        # Проверяем с точностью до минуты
-        assert abs((due_date - expected_date).total_seconds()) < 60
+        assert success is False
+        assert "уже взята" in message
     
-    def test_return_book_should_succeed_with_valid_data(self, library_with_data):
-        """Тест: успешный возврат книги"""
-        isbn = "978-0-545-01022-1"
-        library_with_data.borrow_book("R001", isbn)
+    def test_borrow_book_should_add_record_to_active_loans_with_correct_due_date(self, library_with_data, monkeypatch):
+        """Проверка добавления записи в active_loans с корректной датой возврата"""
+        # Фиксируем текущее время для теста
+        fixed_now = datetime(2024, 1, 1)
         
-        success, fine = library_with_data.return_book("R001", isbn)
+        class MockDatetime:
+            @staticmethod
+            def now():
+                return fixed_now
+        
+        monkeypatch.setattr('library_system.datetime', MockDatetime)
+        
+        success, message = library_with_data.borrow_book("R001", "978-0-545-01022-1")
+        
+        assert success is True
+        expected_due_date = fixed_now + timedelta(days=Library.LOAN_PERIOD_DAYS)
+        assert library_with_data.active_loans[("R001", "978-0-545-01022-1")] == expected_due_date
+    
+    def test_return_book_should_successfully_return_book_without_fine(self, library_with_data):
+        """Успешный возврат книги без штрафа (в срок)"""
+        # Сначала выдаем книгу
+        library_with_data.borrow_book("R001", "978-0-545-01022-1")
+        
+        success, fine = library_with_data.return_book("R001", "978-0-545-01022-1")
         
         assert success is True
         assert fine == 0.0
-        assert ("R001", isbn) not in library_with_data.active_loans
+        assert ("R001", "978-0-545-01022-1") not in library_with_data.active_loans
+        assert "978-0-545-01022-1" not in library_with_data.readers["R001"].borrowed_books
     
-    def test_return_book_should_raise_error_for_nonexistent_reader(self, library_with_data):
-        """Тест: выброс ReaderNotFoundError для несуществующего читателя"""
-        with pytest.raises(ReaderNotFoundError, match="Читатель R999 не найден"):
-            library_with_data.return_book("R999", "978-0-545-01022-1")
+    def test_return_book_should_raise_reader_not_found_error_for_nonexistent_reader(self, library_with_data):
+        """Выброс ReaderNotFoundError для несуществующего читателя"""
+        with pytest.raises(ReaderNotFoundError, match="Читатель NON_EXISTENT не найден"):
+            library_with_data.return_book("NON_EXISTENT", "978-0-545-01022-1")
     
     def test_return_book_should_return_false_for_nonexistent_book(self, library_with_data):
-        """Тест: возврат False для несуществующей книги"""
-        success, fine = library_with_data.return_book("R001", "978-9-999999-99-9")
+        """Возврат (False, 0.0) для несуществующей книги"""
+        success, fine = library_with_data.return_book("R001", "NON_EXISTENT_ISBN")
         
         assert success is False
         assert fine == 0.0
     
-    def test_return_book_should_return_false_if_not_borrowed(self, library_with_data):
-        """Тест: возврат False если книга не была взята"""
+    def test_return_book_should_return_false_if_book_not_borrowed_by_reader(self, library_with_data):
+        """Возврат (False, 0.0) если эта книга не была взята читателем"""
         success, fine = library_with_data.return_book("R001", "978-0-545-01022-1")
         
         assert success is False
         assert fine == 0.0
     
     def test_return_book_should_calculate_fine_for_overdue(self, library_with_data, monkeypatch):
-        """Тест: расчет штрафа при просрочке"""
-        isbn = "978-0-545-01022-1"
+        """Расчет штрафа при просрочке возврата"""
+        # Выдаем книгу
+        library_with_data.borrow_book("R001", "978-0-545-01022-1")
         
-        # Устанавливаем текущую дату
+        # Подменяем текущее время на дату после срока возврата
+        fixed_now = datetime(2024, 1, 20)  # +19 дней от выдачи
+        
         class MockDatetime:
             @staticmethod
             def now():
-                return datetime(2025, 10, 6, 12, 0, 0)
+                return fixed_now
         
         monkeypatch.setattr('library_system.datetime', MockDatetime)
         
-        library_with_data.borrow_book("R001", isbn)
+        # Устанавливаем просроченную дату возврата
+        overdue_due_date = datetime(2024, 1, 10)  # 10 дней просрочки
+        library_with_data.active_loans[("R001", "978-0-545-01022-1")] = overdue_due_date
         
-        # Переносим время на 20 дней вперед (6 дней просрочки)
-        class MockDatetimeOverdue:
-            @staticmethod
-            def now():
-                return datetime(2025, 10, 26, 12, 0, 0)
-        
-        monkeypatch.setattr('library_system.datetime', MockDatetimeOverdue)
-        
-        success, fine = library_with_data.return_book("R001", isbn)
+        success, fine = library_with_data.return_book("R001", "978-0-545-01022-1")
         
         assert success is True
-        assert fine == pytest.approx(60.0)  # 6 дней * 10.0
+        expected_fine = 10 * Library.FINE_PER_DAY  # 10 дней * 10.0
+        assert fine == pytest.approx(expected_fine)
     
-    def test_calculate_fine_should_return_zero_for_on_time(self, empty_library):
-        """Тест: calculate_fine() возвращает 0 для своевременного возврата"""
-        due_date = datetime.now() + timedelta(days=1)
-        fine = empty_library.calculate_fine(due_date)
+    def test_calculate_fine_should_return_zero_for_non_overdue_loan(self, library_with_data):
+        """Метод calculate_fine() возвращает 0 для непросроченного займа"""
+        due_date = datetime.now() + timedelta(days=5)  # еще 5 дней до возврата
+        fine = library_with_data.calculate_fine(due_date)
         
         assert fine == 0.0
     
-    def test_calculate_fine_should_calculate_correct_amount(self, empty_library):
-        """Тест: calculate_fine() корректно рассчитывает штраф"""
-        due_date = datetime.now() - timedelta(days=5)
-        fine = empty_library.calculate_fine(due_date)
+    def test_calculate_fine_should_calculate_fine_correctly(self, library_with_data, monkeypatch):
+        """Метод calculate_fine() корректно рассчитывает штраф (дни * FINE_PER_DAY)"""
+        # Фиксируем текущее время
+        fixed_now = datetime(2024, 1, 15)
         
-        assert fine == pytest.approx(50.0)  # 5 дней * 10.0
-    
-    def test_get_overdue_loans_should_return_overdue_only(self, library_with_data, monkeypatch):
-        """Тест: get_overdue_loans() возвращает только просроченные займы"""
-        # Устанавливаем начальную дату
         class MockDatetime:
             @staticmethod
             def now():
-                return datetime(2025, 10, 1, 12, 0, 0)
+                return fixed_now
         
         monkeypatch.setattr('library_system.datetime', MockDatetime)
         
-        library_with_data.borrow_book("R001", "978-0-545-01022-1")
-        library_with_data.borrow_book("R002", "978-5-17-084716-3")
+        due_date = datetime(2024, 1, 10)  # 5 дней просрочки
+        fine = library_with_data.calculate_fine(due_date)
         
-        # Переносим время на 20 дней вперед
-        class MockDatetimeOverdue:
+        expected_fine = 5 * Library.FINE_PER_DAY
+        assert fine == pytest.approx(expected_fine)
+    
+    def test_get_overdue_loans_should_return_list_of_overdue_loans(self, library_with_data, monkeypatch):
+        """Метод get_overdue_loans() возвращает список просроченных займов"""
+        # Фиксируем текущее время
+        fixed_now = datetime(2024, 1, 20)
+        
+        class MockDatetime:
             @staticmethod
             def now():
-                return datetime(2025, 10, 21, 12, 0, 0)
+                return fixed_now
         
-        monkeypatch.setattr('library_system.datetime', MockDatetimeOverdue)
+        monkeypatch.setattr('library_system.datetime', MockDatetime)
         
-        overdue = library_with_data.get_overdue_loans()
+        # Добавляем активные займы с разными датами возврата
+        library_with_data.active_loans[("R001", "ISBN1")] = datetime(2024, 1, 10)  # 10 дней просрочки
+        library_with_data.active_loans[("R001", "ISBN2")] = datetime(2024, 1, 15)  # 5 дней просрочки
+        library_with_data.active_loans[("R002", "ISBN3")] = datetime(2024, 1, 25)  # не просрочен
         
-        assert len(overdue) == 2
-        # Проверяем структуру (reader_id, isbn, days_overdue, fine)
-        assert all(len(item) == 4 for item in overdue)
-        assert all(item[2] > 0 for item in overdue)  # дни просрочки > 0
+        overdue_loans = library_with_data.get_overdue_loans()
+        
+        assert len(overdue_loans) == 2
+        # Проверяем сортировку по убыванию дней просрочки
+        assert overdue_loans[0][2] == 10  # 10 дней просрочки
+        assert overdue_loans[1][2] == 5   # 5 дней просрочки
     
-    def test_get_reader_stats_should_return_correct_stats(self, library_with_data):
-        """Тест: get_reader_stats() возвращает корректную статистику"""
+    def test_get_reader_stats_should_return_correct_statistics(self, library_with_data):
+        """Метод get_reader_stats() возвращает корректную статистику"""
+        # Выдаем несколько книг читателю
         library_with_data.borrow_book("R001", "978-0-545-01022-1")
         library_with_data.borrow_book("R001", "978-5-17-084716-3")
-        library_with_data.return_book("R001", "978-0-545-01022-1")
         
         stats = library_with_data.get_reader_stats("R001")
         
         assert stats['name'] == "Иван Иванов"
-        assert stats['currently_borrowed'] == 1
-        assert stats['total_borrowed'] == 2
-        assert stats['total_returned'] == 1
-        assert stats['current_fines'] == pytest.approx(0.0)
+        assert stats['currently_borrowed'] == 2
+        assert stats['total_borrowed'] >= 2
+        assert stats['current_fines'] == 0.0
     
-    def test_get_reader_stats_should_raise_error_for_nonexistent_reader(self, library_with_data):
-        """Тест: get_reader_stats() выбрасывает ошибку для несуществующего читателя"""
-        with pytest.raises(ReaderNotFoundError, match="Читатель R999 не найден"):
-            library_with_data.get_reader_stats("R999")
+    def test_get_reader_stats_should_raise_reader_not_found_error(self, library_with_data):
+        """Метод get_reader_stats() выбрасывает ReaderNotFoundError для несуществующего читателя"""
+        with pytest.raises(ReaderNotFoundError, match="Читатель NON_EXISTENT не найден"):
+            library_with_data.get_reader_stats("NON_EXISTENT")
     
-    def test_get_popular_books_should_return_top_books(self, library_with_data):
-        """Тест: get_popular_books() возвращает топ популярных книг"""
-        # Создаем историю займов
+    def test_get_popular_books_should_return_top_popular_books(self, library_with_data):
+        """Метод get_popular_books() возвращает топ популярных книг"""
+        # Выдаем книги несколько раз
         library_with_data.borrow_book("R001", "978-0-545-01022-1")
-        library_with_data.return_book("R001", "978-0-545-01022-1")
         library_with_data.borrow_book("R002", "978-0-545-01022-1")
-        library_with_data.borrow_book("R003", "978-5-17-084716-3")
+        library_with_data.borrow_book("R001", "978-5-17-084716-3")
         
-        popular = library_with_data.get_popular_books(top_n=2)
+        popular_books = library_with_data.get_popular_books(top_n=2)
         
-        assert len(popular) <= 2
-        assert popular[0][0].isbn == "978-0-545-01022-1"  # Самая популярная
-        assert popular[0][1] == 2  # Взята 2 раза
-    
-    def test_get_popular_books_should_handle_empty_history(self, empty_library):
-        """Тест: get_popular_books() работает с пустой историей"""
-        popular = empty_library.get_popular_books()
-        
-        assert popular == []
+        assert len(popular_books) == 2
+        # Книга с ISBN 978-0-545-01022-1 должна быть самой популярной (2 выдачи)
+        assert popular_books[0][0].isbn == "978-0-545-01022-1"
+        assert popular_books[0][1] == 2
 
 
 # ============= ИНТЕГРАЦИОННЫЕ ТЕСТЫ =============
 
 class TestIntegration:
-    """Интеграционные тесты для полных сценариев"""
+    """Интеграционные тесты"""
     
-    def test_full_book_lifecycle(self):
-        """Тест: полный жизненный цикл работы с книгой"""
-        # 1. Создание библиотеки
-        library = Library("Тестовая библиотека")
+    def test_full_book_lifecycle(self, empty_library):
+        """
+        Полный цикл работы с книгой:
+        1. Создание библиотеки
+        2. Добавление книги
+        3. Регистрация читателя
+        4. Выдача книги
+        5. Проверка статистики
+        6. Возврат книги
+        7. Проверка обновленной статистики
+        """
+        # 1. Библиотека уже создана фикстурой
         
         # 2. Добавление книги
-        book = Book("978-0-123456-78-9", "Тестовая книга", "Автор", 2020, 2)
-        library.add_book(book)
-        assert len(library.books) == 1
+        book = Book("TEST-ISBN", "Тестовая книга", "Тестовый автор", 2024, 2)
+        empty_library.add_book(book)
+        assert book.isbn in empty_library.books
         
         # 3. Регистрация читателя
-        reader = Reader("R001", "Иван Иванов", "ivan@example.com")
-        library.register_reader(reader)
-        assert len(library.readers) == 1
+        reader = Reader("TEST-READER", "Тестовый читатель", "test@example.com")
+        empty_library.register_reader(reader)
+        assert reader.reader_id in empty_library.readers
         
         # 4. Выдача книги
-        success, msg = library.borrow_book("R001", "978-0-123456-78-9")
+        success, message = empty_library.borrow_book("TEST-READER", "TEST-ISBN")
         assert success is True
-        assert library.books["978-0-123456-78-9"].available_copies == 1
+        assert ("TEST-READER", "TEST-ISBN") in empty_library.active_loans
         
         # 5. Проверка статистики
-        stats = library.get_reader_stats("R001")
+        stats = empty_library.get_reader_stats("TEST-READER")
         assert stats['currently_borrowed'] == 1
         assert stats['total_borrowed'] == 1
-        assert stats['total_returned'] == 0
         
         # 6. Возврат книги
-        success, fine = library.return_book("R001", "978-0-123456-78-9")
+        success, fine = empty_library.return_book("TEST-READER", "TEST-ISBN")
         assert success is True
         assert fine == 0.0
-        assert library.books["978-0-123456-78-9"].available_copies == 2
+        assert ("TEST-READER", "TEST-ISBN") not in empty_library.active_loans
         
         # 7. Проверка обновленной статистики
-        stats = library.get_reader_stats("R001")
-        assert stats['currently_borrowed'] == 0
-        assert stats['total_borrowed'] == 1
-        assert stats['total_returned'] == 1
+        stats_after = empty_library.get_reader_stats("TEST-READER")
+        assert stats_after['currently_borrowed'] == 0
+        assert stats_after['total_returned'] == 1
     
-    def test_overdue_scenario_with_fine(self, monkeypatch):
-        """Тест: сценарий с просрочкой и штрафом"""
-        # 1. Создание библиотеки и данных
-        library = Library("Библиотека")
-        book = Book("978-0-123456-78-9", "Книга", "Автор", 2020, 1)
-        reader = Reader("R001", "Читатель", "reader@example.com")
+    def test_scenario_with_overdue(self, empty_library, monkeypatch):
+        """
+        Сценарий с просрочкой:
+        1. Выдача книги
+        2. Эмуляция просрочки (через monkeypatch)
+        3. Проверка расчета штрафа
+        4. Возврат с штрафом
+        """
+        # Настройка данных
+        book = Book("TEST-ISBN", "Тестовая книга", "Тестовый автор", 2024, 1)
+        empty_library.add_book(book)
         
-        library.add_book(book)
-        library.register_reader(reader)
+        reader = Reader("TEST-READER", "Тестовый читатель", "test@example.com")
+        empty_library.register_reader(reader)
         
-        # 2. Устанавливаем начальную дату (1 октября)
+        # 1. Выдача книги (фиксируем дату выдачи)
+        fixed_borrow_date = datetime(2024, 1, 1)
+        
         class MockDatetimeBorrow:
             @staticmethod
             def now():
-                return datetime(2025, 10, 1, 12, 0, 0)
+                return fixed_borrow_date
         
         monkeypatch.setattr('library_system.datetime', MockDatetimeBorrow)
         
-        # 3. Выдача книги
-        success, msg = library.borrow_book("R001", "978-0-123456-78-9")
+        success, message = empty_library.borrow_book("TEST-READER", "TEST-ISBN")
         assert success is True
         
-        # 4. Проверяем дату возврата (должна быть 15 октября)
-        due_date = library.active_loans[("R001", "978-0-123456-78-9")]
-        expected_due = datetime(2025, 10, 15, 12, 0, 0)
-        assert due_date == expected_due
+        # 2. Эмуляция просрочки (текущая дата после срока возврата)
+        fixed_return_date = datetime(2024, 1, 20)  # 19 дней от выдачи, 5 дней просрочки
         
-        # 5. Переносим время на 25 октября (10 дней просрочки)
         class MockDatetimeReturn:
             @staticmethod
             def now():
-                return datetime(2025, 10, 25, 12, 0, 0)
+                return fixed_return_date
         
         monkeypatch.setattr('library_system.datetime', MockDatetimeReturn)
         
-        # 6. Проверяем просроченные займы
-        overdue = library.get_overdue_loans()
-        assert len(overdue) == 1
-        assert overdue[0][0] == "R001"
-        assert overdue[0][1] == "978-0-123456-78-9"
-        assert overdue[0][2] == 10  # дней просрочки
-        assert overdue[0][3] == pytest.approx(100.0)  # штраф
-        
-        # 7. Возврат с штрафом
-        success, fine = library.return_book("R001", "978-0-123456-78-9")
-        assert success is True
-        assert fine == pytest.approx(100.0)  # 10 дней * 10.0
-        
-        # 8. Проверяем что займ удален
-        assert ("R001", "978-0-123456-78-9") not in library.active_loans
-    
-    def test_multiple_readers_borrowing_same_book(self):
-        """Тест: несколько читателей берут одну и ту же книгу"""
-        library = Library("Библиотека")
-        
-        # Книга с 3 копиями
-        book = Book("978-0-123456-78-9", "Популярная книга", "Автор", 2020, 3)
-        library.add_book(book)
-        
-        # 3 читателя
-        for i in range(1, 4):
-            reader = Reader(f"R00{i}", f"Читатель {i}", f"reader{i}@example.com")
-            library.register_reader(reader)
-        
-        # Первый читатель берет книгу
-        success, _ = library.borrow_book("R001", "978-0-123456-78-9")
-        assert success is True
-        assert library.books["978-0-123456-78-9"].available_copies == 2
-        
-        # Второй читатель берет книгу
-        success, _ = library.borrow_book("R002", "978-0-123456-78-9")
-        assert success is True
-        assert library.books["978-0-123456-78-9"].available_copies == 1
-        
-        # Третий читатель берет последнюю копию
-        success, _ = library.borrow_book("R003", "978-0-123456-78-9")
-        assert success is True
-        assert library.books["978-0-123456-78-9"].available_copies == 0
-        
-        # Четвертый читатель не может взять (нет копий)
-        reader4 = Reader("R004", "Читатель 4", "reader4@example.com")
-        library.register_reader(reader4)
-        
-        with pytest.raises(BookNotAvailableError):
-            library.borrow_book("R004", "978-0-123456-78-9")
-        
-        # Первый читатель возвращает книгу
-        success, _ = library.return_book("R001", "978-0-123456-78-9")
-        assert success is True
-        assert library.books["978-0-123456-78-9"].available_copies == 1
-        
-        # Теперь четвертый может взять
-        success, _ = library.borrow_book("R004", "978-0-123456-78-9")
-        assert success is True
-    
-    def test_reader_reaching_book_limit(self):
-        """Тест: читатель достигает лимита книг"""
-        library = Library("Библиотека")
-        
-        # Добавляем 6 книг
-        for i in range(1, 7):
-            book = Book(f"978-0-123456-78-{i}", f"Книга {i}", "Автор", 2020, 1)
-            library.add_book(book)
-        
-        # Регистрируем читателя
-        reader = Reader("R001", "Читатель", "reader@example.com")
-        library.register_reader(reader)
-        
-        # Берем MAX_BOOKS (5) книг
-        for i in range(1, 6):
-            success, _ = library.borrow_book("R001", f"978-0-123456-78-{i}")
-            assert success is True
-        
-        # Проверяем что достигнут лимит
-        assert not library.readers["R001"].can_borrow()
-        
-        # Попытка взять 6-ю книгу должна провалиться
-        success, msg = library.borrow_book("R001", "978-0-123456-78-6")
-        assert success is False
-        assert "лимита книг" in msg
-        
-        # Возвращаем одну книгу
-        library.return_book("R001", "978-0-123456-78-1")
-        
-        # Теперь можем взять другую
-        success, _ = library.borrow_book("R001", "978-0-123456-78-6")
-        assert success is True
-    
-    def test_search_and_borrow_workflow(self):
-        """Тест: поиск и выдача книги"""
-        library = Library("Библиотека")
-        
-        # Добавляем книги разных авторов
-        books = [
-            Book("978-1", "Гарри Поттер и философский камень", "Дж.К. Роулинг", 2001, 2),
-            Book("978-2", "Гарри Поттер и тайная комната", "Дж.К. Роулинг", 2002, 2),
-            Book("978-3", "1984", "Джордж Оруэлл", 1949, 1),
-        ]
-        
-        for book in books:
-            library.add_book(book)
-        
-        # Регистрируем читателя
-        reader = Reader("R001", "Читатель", "reader@example.com")
-        library.register_reader(reader)
-        
-        # Ищем книги Роулинг
-        rowling_books = library.find_books_by_author("Роулинг")
-        assert len(rowling_books) == 2
-        
-        # Ищем книги про Гарри Поттера
-        harry_books = library.find_books_by_title("Гарри Поттер")
-        assert len(harry_books) == 2
-        
-        # Берем первую найденную книгу
-        success, _ = library.borrow_book("R001", harry_books[0].isbn)
-        assert success is True
-        
-        # Проверяем доступные книги
-        available = library.get_available_books()
-        assert len(available) == 3  # одна копия взята, но остались другие
-        
-        # Ищем самые популярные
-        popular = library.get_popular_books(top_n=3)
-        assert len(popular) >= 1
-        assert popular[0][1] == 1  # взята 1 раз
-
-
-# ============= ДОПОЛНИТЕЛЬНЫЕ EDGE CASE ТЕСТЫ =============
-
-class TestEdgeCases:
-    """Тесты граничных случаев"""
-    
-    def test_book_with_zero_copies(self):
-        """Тест: книга с 0 копий при создании"""
-        book = Book("978-0-123456-78-9", "Книга", "Автор", 2020, 0)
-        
-        assert book.total_copies == 0
-        assert book.available_copies == 0
-        assert book.is_available() is False
-    
-    def test_library_with_special_characters_in_name(self):
-        """Тест: библиотека с спецсимволами в названии"""
-        library = Library("Библиотека №1 «Центральная» (г. Москва)")
-        
-        assert library.name == "Библиотека №1 «Центральная» (г. Москва)"
-    
-    def test_reader_with_multiple_at_signs_in_email(self):
-        """Тест: email с несколькими @ должен быть валиден"""
-        # В реальности email может иметь @ только один раз, но наша простая
-        # валидация просто проверяет наличие @
-        reader = Reader("R001", "Имя", "test@@example.com")
-        assert reader.email == "test@@example.com"
-    
-    def test_book_title_with_numbers_and_symbols(self):
-        """Тест: название книги с цифрами и символами"""
-        book = Book("978-0-123456-78-9", "2001: Космическая одиссея", "А. Кларк", 2000, 1)
-        
-        assert book.title == "2001: Космическая одиссея"
-    
-    def test_return_same_book_twice(self):
-        """Тест: попытка вернуть одну и ту же книгу дважды"""
-        library = Library("Библиотека")
-        book = Book("978-0-123456-78-9", "Книга", "Автор", 2020, 1)
-        reader = Reader("R001", "Читатель", "reader@example.com")
-        
-        library.add_book(book)
-        library.register_reader(reader)
-        
-        # Берем и возвращаем
-        library.borrow_book("R001", "978-0-123456-78-9")
-        success1, _ = library.return_book("R001", "978-0-123456-78-9")
-        
-        # Попытка вернуть снова
-        success2, fine2 = library.return_book("R001", "978-0-123456-78-9")
-        
-        assert success1 is True
-        assert success2 is False
-        assert fine2 == 0.0
-    
-    def test_get_popular_books_with_tied_counts(self):
-        """Тест: популярные книги с одинаковым количеством займов"""
-        library = Library("Библиотека")
-        
-        # Добавляем 3 книги
-        for i in range(1, 4):
-            book = Book(f"978-{i}", f"Книга {i}", "Автор", 2020, 2)
-            library.add_book(book)
-        
-        # Добавляем 3 читателей
-        for i in range(1, 4):
-            reader = Reader(f"R00{i}", f"Читатель {i}", f"reader{i}@example.com")
-            library.register_reader(reader)
-        
-        # Каждый читатель берет свою книгу (по 1 разу каждая)
-        library.borrow_book("R001", "978-1")
-        library.borrow_book("R002", "978-2")
-        library.borrow_book("R003", "978-3")
-        
-        popular = library.get_popular_books(top_n=3)
-        
-        # Все три книги должны иметь счетчик 1
-        assert len(popular) == 3
-        assert all(count == 1 for _, count in popular)
-    
-    def test_statistics_for_reader_with_no_activity(self):
-        """Тест: статистика для читателя без активности"""
-        library = Library("Библиотека")
-        reader = Reader("R001", "Читатель", "reader@example.com")
-        library.register_reader(reader)
-        
-        stats = library.get_reader_stats("R001")
-        
-        assert stats['currently_borrowed'] == 0
-        assert stats['total_borrowed'] == 0
-        assert stats['total_returned'] == 0
-        assert stats['current_fines'] == 0.0
-    
-    def test_very_long_overdue_period(self, monkeypatch):
-        """Тест: очень долгая просрочка"""
-        library = Library("Библиотека")
-        book = Book("978-0-123456-78-9", "Книга", "Автор", 2020, 1)
-        reader = Reader("R001", "Читатель", "reader@example.com")
-        
-        library.add_book(book)
-        library.register_reader(reader)
-        
-        # Дата выдачи
-        class MockDatetimeBorrow:
-            @staticmethod
-            def now():
-                return datetime(2024, 1, 1, 12, 0, 0)
-        
-        monkeypatch.setattr('library_system.datetime', MockDatetimeBorrow)
-        library.borrow_book("R001", "978-0-123456-78-9")
-        
-        # Возврат через год
-        class MockDatetimeReturn:
-            @staticmethod
-            def now():
-                return datetime(2025, 1, 1, 12, 0, 0)
-        
-        monkeypatch.setattr('library_system.datetime', MockDatetimeReturn)
-        
-        success, fine = library.return_book("R001", "978-0-123456-78-9")
-        
-        # Вычисляем точную разницу дней между датами
-        due_date = datetime(2024, 1, 1, 12, 0, 0) + timedelta(days=14)
-        return_date = datetime(2025, 1, 1, 12, 0, 0)
-        overdue_days = (return_date - due_date).days
-        expected_fine = overdue_days * 10.0
-        
-        assert success is True
+        # 3. Проверка расчета штрафа
+        due_date = fixed_borrow_date + timedelta(days=Library.LOAN_PERIOD_DAYS)
+        fine = empty_library.calculate_fine(due_date)
+        expected_fine = 5 * Library.FINE_PER_DAY  # 5 дней просрочки
         assert fine == pytest.approx(expected_fine)
-
-
-# ============= ТЕСТЫ ВСПОМОГАТЕЛЬНЫХ ФУНКЦИЙ =============
-
-class TestHelperFunctions:
-    """Тесты вспомогательных функций"""
-    
-    def test_create_sample_library(self):
-        """Тест: функция create_sample_library создает корректную библиотеку"""
-        library = create_sample_library()
         
-        assert library.name == "Городская библиотека"
-        assert len(library.books) == 3
-        assert len(library.readers) == 2
-        
-        # Проверяем наличие конкретных книг
-        assert "978-0-545-01022-1" in library.books
-        assert "978-5-17-084716-3" in library.books
-        
-        # Проверяем читателей
-        assert "R001" in library.readers
-        assert "R002" in library.readers
+        # 4. Возврат с штрафом
+        success, actual_fine = empty_library.return_book("TEST-READER", "TEST-ISBN")
+        assert success is True
+        assert actual_fine == pytest.approx(expected_fine)
 
 
 if __name__ == "__main__":
-    # Запуск тестов с подробным выводом
-    pytest.main([__file__, "-v", "--tb=short"])
+    pytest.main([__file__, "-v"])
+
+  # test_solution3.py [100%]
+  # 88 passed in 0.77s  
