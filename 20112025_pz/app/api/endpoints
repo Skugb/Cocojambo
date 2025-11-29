@@ -1,0 +1,35 @@
+{
+  "technologies": [
+    {"id": "uuid", "name": "Python"},
+    {"id": "uuid", "name": "SQL"}
+  ]
+}
+
+{
+  "vacancy_query": "Python разработчик",
+  "technology": "SQL",
+  "exact_match": false,
+  "date_from": "2024-01-01",
+  "date_to": "2024-12-31"
+}
+
+{
+  "statistics": {
+    "total_vacancies": 1000,
+    "vacancies_with_technology": 800,
+    "percentage": 80.0,
+    "trend": "increasing"
+  },
+  "vacancies": [
+    {
+      "title": "Python разработчик",
+      "url": "https://hh.ru/vacancy/123",
+      "has_technology": true,
+      "company": "Tech Corp"
+    }
+  ],
+  "historical_data": [
+    {"date": "2024-01-01", "percentage": 75.0},
+    {"date": "2024-02-01", "percentage": 78.0}
+  ]
+}
